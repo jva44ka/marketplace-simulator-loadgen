@@ -1,0 +1,35 @@
+product-client:
+  host: localhost
+  port: 8080
+  auth-token: admin
+  timeout: 5s
+
+cart-client:
+  host: localhost
+  port: 5010
+  timeout: 5s
+
+kafka:
+  brokers:
+    - kafka:9092
+  product-events-topic: product.events
+  consumer-group: loadgen
+
+skus: [1, 2, 3, 4, 5]
+
+workers:
+  replenisher:
+    enabled: true
+    parallelism: 3
+    low-stock-threshold: 10
+    replenish-count: 50
+
+  order-flow:
+    enabled: true
+    parallelism: 5
+    rps: 10
+
+  cart-viewer:
+    enabled: true
+    parallelism: 2
+    rps: 20
