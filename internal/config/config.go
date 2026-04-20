@@ -63,7 +63,7 @@ type CartViewerConfig struct {
 func Load() (*Config, error) {
 	path := os.Getenv("CONFIG_PATH")
 	if path == "" {
-		path = "configs/values.yaml"
+		path = "configs/values_local.yaml"
 	}
 
 	data, err := os.ReadFile(path)
