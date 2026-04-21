@@ -70,8 +70,12 @@ func (o *OrderFlow) runWorker(ctx context.Context, limiter *rate.Limiter) {
 		slog.Info("order_flow: added to cart", "user_id", userId, "sku", sku)
 
 		if err := o.cartClient.Checkout(ctx, userId); err != nil {
-			slog.Error("order_flow: checkout failed",
-				"user_id", userId, "err", err)
+			slog.Error("order_flow: checkout failed", "user_id", userId, "err", err)
+			if cleanErr := o.cartClient.CleanCart(ctx, userId); cleanErr != nil {
+				slog.Error("order_flow: clean cart failed", "user_id", userId, "err", cleanErr)
+			} else {
+				slog.Info("order_flow: cart cleaned after failed checkout", "user_id", userId)
+			}
 			continue
 		}
 		slog.Info("order_flow: checkout completed", "user_id", userId, "sku", sku)

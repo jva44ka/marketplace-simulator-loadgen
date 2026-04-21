@@ -86,6 +86,30 @@ func (c *CartClient) Checkout(ctx context.Context, userId string) error {
 	return nil
 }
 
+// CleanCart calls DELETE /user/{userId}/cart.
+func (c *CartClient) CleanCart(ctx context.Context, userId string) error {
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+
+	url := fmt.Sprintf("%s/user/%s/cart", c.baseURL, userId)
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, http.NoBody)
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("unexpected status %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
 // GetCart calls GET /user/{userId}/cart.
 func (c *CartClient) GetCart(ctx context.Context, userId string) error {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
