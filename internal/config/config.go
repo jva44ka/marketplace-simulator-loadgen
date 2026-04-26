@@ -12,8 +12,24 @@ type Config struct {
 	ProductClient ProductClientConfig `yaml:"product-client"`
 	CartClient    CartClientConfig    `yaml:"cart-client"`
 	Kafka         KafkaConfig         `yaml:"kafka"`
-	Skus          []uint64            `yaml:"skus"`
+	SkuRange      SkuRangeConfig      `yaml:"sku-range"`
 	Workers       WorkersConfig       `yaml:"workers"`
+}
+
+type SkuRangeConfig struct {
+	Min uint64 `yaml:"min"`
+	Max uint64 `yaml:"max"`
+}
+
+func (s SkuRangeConfig) GetSkus() []uint64 {
+	if s.Max < s.Min {
+		return nil
+	}
+	skus := make([]uint64, 0, s.Max-s.Min+1)
+	for sku := s.Min; sku <= s.Max; sku++ {
+		skus = append(skus, sku)
+	}
+	return skus
 }
 
 type ProductClientConfig struct {

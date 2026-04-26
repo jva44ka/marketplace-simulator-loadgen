@@ -43,7 +43,7 @@ func main() {
 	}
 
 	if cfg.Workers.OrderFlow.Enabled {
-		w := workers.NewOrderFlow(cfg.Workers.OrderFlow, cfg.Skus, cartClient)
+		w := workers.NewOrderFlow(cfg.Workers.OrderFlow, cfg.SkuRange.GetSkus(), cartClient)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
