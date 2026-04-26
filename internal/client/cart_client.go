@@ -55,7 +55,7 @@ func (c *CartClient) AddToCart(ctx context.Context, userId string, sku uint64, c
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("unexpected status %d", resp.StatusCode)
+		return fmt.Errorf("unexpected status %d. message: %s", resp.StatusCode, resp.Status)
 	}
 
 	return nil
@@ -80,7 +80,7 @@ func (c *CartClient) Checkout(ctx context.Context, userId string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("unexpected status %d", resp.StatusCode)
+		return fmt.Errorf("unexpected status %d. message: %s", resp.StatusCode, resp.Status)
 	}
 
 	return nil
@@ -104,7 +104,7 @@ func (c *CartClient) CleanCart(ctx context.Context, userId string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("unexpected status %d", resp.StatusCode)
+		return fmt.Errorf("unexpected status %d. message: %s", resp.StatusCode, resp.Status)
 	}
 
 	return nil
@@ -128,7 +128,7 @@ func (c *CartClient) GetCart(ctx context.Context, userId string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("unexpected status %d", resp.StatusCode)
+		return fmt.Errorf("unexpected status %d. message: %s", resp.StatusCode, resp.Status)
 	}
 
 	return nil

@@ -65,7 +65,7 @@ func (c *ProductClient) IncreaseCount(ctx context.Context, sku uint64, count uin
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("unexpected status %d", resp.StatusCode)
+		return fmt.Errorf("unexpected status %d. message: %s", resp.StatusCode, resp.Status)
 	}
 
 	return nil
