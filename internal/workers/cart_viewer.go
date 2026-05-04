@@ -13,33 +13,36 @@ import (
 
 // CartViewer simulates users fetching their cart contents.
 type CartViewer struct {
-	cfg        config.CartViewerConfig
+	cfgStore   *config.ConfigStore
 	cartClient *client.CartClient
+	Limiter    *rate.Limiter // exported so main can call SetLimit/SetBurst on hot-reload
 }
 
 func NewCartViewer(
-	cfg config.CartViewerConfig,
+	cfgStore *config.ConfigStore,
 	cartClient *client.CartClient,
 ) *CartViewer {
+	cfg := cfgStore.Load().Workers.CartViewer
+	lim := rate.NewLimiter(rate.Limit(cfg.RPS), cfg.RPS)
 	return &CartViewer{
-		cfg:        cfg,
+		cfgStore:   cfgStore,
 		cartClient: cartClient,
+		Limiter:    lim,
 	}
 }
 
 // Run launches cfg.Parallelism goroutines that share a single rate limiter.
 // Blocks until ctx is cancelled.
 func (cv *CartViewer) Run(ctx context.Context) error {
-	limiter := rate.NewLimiter(rate.Limit(cv.cfg.RPS), cv.cfg.RPS)
-
-	slog.Info("cart_viewer: started", "parallelism", cv.cfg.Parallelism, "rps", cv.cfg.RPS)
+	cfg := cv.cfgStore.Load().Workers.CartViewer
+	slog.Info("cart_viewer: started", "parallelism", cfg.Parallelism, "rps", cfg.RPS)
 
 	var wg sync.WaitGroup
-	for i := 0; i < cv.cfg.Parallelism; i++ {
+	for i := 0; i < cfg.Parallelism; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			cv.runWorker(ctx, limiter)
+			cv.runWorker(ctx)
 		}()
 	}
 
@@ -47,9 +50,9 @@ func (cv *CartViewer) Run(ctx context.Context) error {
 	return nil
 }
 
-func (cv *CartViewer) runWorker(ctx context.Context, limiter *rate.Limiter) {
+func (cv *CartViewer) runWorker(ctx context.Context) {
 	for {
-		if err := limiter.Wait(ctx); err != nil {
+		if err := cv.Limiter.Wait(ctx); err != nil {
 			// ctx cancelled
 			return
 		}

@@ -15,36 +15,39 @@ import (
 
 // OrderFlow simulates users adding items to their carts and checking out.
 type OrderFlow struct {
-	cfg        config.OrderFlowConfig
+	cfgStore   *config.ConfigStore
 	skus       []uint64
 	cartClient *client.CartClient
+	Limiter    *rate.Limiter // exported so main can call SetLimit/SetBurst on hot-reload
 }
 
 func NewOrderFlow(
-	cfg config.OrderFlowConfig,
+	cfgStore *config.ConfigStore,
 	skus []uint64,
 	cartClient *client.CartClient,
 ) *OrderFlow {
+	cfg := cfgStore.Load().Workers.OrderFlow
+	lim := rate.NewLimiter(rate.Limit(cfg.RPS), cfg.RPS)
 	return &OrderFlow{
-		cfg:        cfg,
+		cfgStore:   cfgStore,
 		skus:       skus,
 		cartClient: cartClient,
+		Limiter:    lim,
 	}
 }
 
 // Run launches cfg.Parallelism goroutines that share a single rate limiter.
 // Blocks until ctx is cancelled.
 func (o *OrderFlow) Run(ctx context.Context) error {
-	limiter := rate.NewLimiter(rate.Limit(o.cfg.RPS), o.cfg.RPS)
-
-	slog.Info("order_flow: started", "parallelism", o.cfg.Parallelism, "rps", o.cfg.RPS)
+	cfg := o.cfgStore.Load().Workers.OrderFlow
+	slog.Info("order_flow: started", "parallelism", cfg.Parallelism, "rps", cfg.RPS)
 
 	var wg sync.WaitGroup
-	for i := 0; i < o.cfg.Parallelism; i++ {
+	for i := 0; i < cfg.Parallelism; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			o.runWorker(ctx, limiter)
+			o.runWorker(ctx)
 		}()
 	}
 
@@ -52,9 +55,9 @@ func (o *OrderFlow) Run(ctx context.Context) error {
 	return nil
 }
 
-func (o *OrderFlow) runWorker(ctx context.Context, limiter *rate.Limiter) {
+func (o *OrderFlow) runWorker(ctx context.Context) {
 	for {
-		if err := limiter.Wait(ctx); err != nil {
+		if err := o.Limiter.Wait(ctx); err != nil {
 			// ctx cancelled
 			return
 		}

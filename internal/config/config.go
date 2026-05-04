@@ -14,6 +14,13 @@ type Config struct {
 	Kafka         KafkaConfig         `yaml:"kafka"`
 	SkuRange      SkuRangeConfig      `yaml:"sku-range"`
 	Workers       WorkersConfig       `yaml:"workers"`
+	Etcd          *EtcdConfig         `yaml:"etcd"`
+}
+
+type EtcdConfig struct {
+	Endpoints   []string `yaml:"endpoints"`
+	DialTimeout string   `yaml:"dial-timeout"`
+	ConfigKey   string   `yaml:"config-key"`
 }
 
 type SkuRangeConfig struct {

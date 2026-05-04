@@ -38,19 +38,16 @@ type replenishTask struct {
 // Replenisher consumes product.events from Kafka and calls IncreaseCount
 // when stock drops below the configured threshold.
 type Replenisher struct {
-	cfg           config.ReplenisherConfig
-	kafkaCfg      config.KafkaConfig
+	cfgStore      *config.ConfigStore
 	productClient *client.ProductClient
 }
 
 func NewReplenisher(
-	cfg config.ReplenisherConfig,
-	kafkaCfg config.KafkaConfig,
+	cfgStore *config.ConfigStore,
 	productClient *client.ProductClient,
 ) *Replenisher {
 	return &Replenisher{
-		cfg:           cfg,
-		kafkaCfg:      kafkaCfg,
+		cfgStore:      cfgStore,
 		productClient: productClient,
 	}
 }
@@ -58,10 +55,13 @@ func NewReplenisher(
 // Run starts the Kafka consumer and the worker pool. It blocks until ctx is
 // cancelled.
 func (r *Replenisher) Run(ctx context.Context) error {
+	kafkaCfg := r.cfgStore.Load().Kafka
+	workerCfg := r.cfgStore.Load().Workers.Replenisher
+
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: r.kafkaCfg.Brokers,
-		Topic:   r.kafkaCfg.ProductEventsTopic,
-		GroupID: r.kafkaCfg.ConsumerGroup,
+		Brokers: kafkaCfg.Brokers,
+		Topic:   kafkaCfg.ProductEventsTopic,
+		GroupID: kafkaCfg.ConsumerGroup,
 	})
 	defer func() {
 		if err := reader.Close(); err != nil {
@@ -69,15 +69,15 @@ func (r *Replenisher) Run(ctx context.Context) error {
 		}
 	}()
 
-	tasks := make(chan replenishTask, r.cfg.Parallelism*2)
+	tasks := make(chan replenishTask, workerCfg.Parallelism*2)
 
 	// Start worker pool.
-	for i := 0; i < r.cfg.Parallelism; i++ {
+	for i := 0; i < workerCfg.Parallelism; i++ {
 		go r.worker(ctx, tasks)
 	}
 
-	slog.Info("replenisher: started", "parallelism", r.cfg.Parallelism,
-		"low_stock_threshold", r.cfg.LowStockThreshold)
+	slog.Info("replenisher: started", "parallelism", workerCfg.Parallelism,
+		"low_stock_threshold", workerCfg.LowStockThreshold)
 
 	for {
 		msg, err := reader.ReadMessage(ctx)
@@ -104,10 +104,12 @@ func (r *Replenisher) Run(ctx context.Context) error {
 			"new_count", event.Data.New.Count,
 		)
 
-		if event.Data.New.Count < r.cfg.LowStockThreshold {
+		// Read config fresh on every event — picks up hot-reloaded values.
+		cfg := r.cfgStore.Load().Workers.Replenisher
+		if event.Data.New.Count < cfg.LowStockThreshold {
 			task := replenishTask{
 				sku:   event.Data.New.SKU,
-				count: r.cfg.ReplenishCount,
+				count: cfg.ReplenishCount,
 			}
 			select {
 			case tasks <- task:
